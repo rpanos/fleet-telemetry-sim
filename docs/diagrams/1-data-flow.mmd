@@ -1,0 +1,38 @@
+%%{init: {"flowchart": {"curve": "basis"}, "themeVariables": {"clusterBkg": "#fafafa", "clusterBorder": "#bbb"}}}%%
+flowchart LR
+  subgraph TR["Trailer on a jobsite"]
+    direction TB
+    M1["Module 1<br/>20 kW + controller"]
+    M2["Module 2"]
+    MN["Module N"]
+    GW["Gateway<br/>Linux box + cell modem"]
+    Q[("Disk queue<br/>store-and-forward")]
+    M1 --> GW
+    M2 --> GW
+    MN --> GW
+    GW <--> Q
+  end
+
+  subgraph CL["Cloud"]
+    direction TB
+    BR{{"MQTT broker<br/>Mosquitto or AWS IoT Core"}}
+    ING["Ingest worker<br/>batch insert + dedupe"]
+    DB[("TimescaleDB<br/>time-series tables + rollups")]
+    GF["Grafana<br/>engineering dashboards"]
+    APP["Ops and customer app<br/>future"]
+    CMD["Command service<br/>desired vs reported"]
+  end
+
+  GW <-- "UP: telemetry every 10 s, QoS 1<br/>DOWN: commands<br/>over cellular" --> BR
+  BR --> ING --> DB
+  DB --> GF
+  DB --> APP
+  APP --> CMD
+  CMD -- "fleet/id/cmd" --> BR
+
+  classDef edge fill:#fff4e5,stroke:#d9822b,color:#222
+  classDef cloud fill:#e8f1fb,stroke:#2b6cb0,color:#222
+  classDef future fill:#f2f2f2,stroke:#999,color:#666,stroke-dasharray: 4 3
+  class M1,M2,MN,GW,Q edge
+  class BR,ING,DB,GF,CMD cloud
+  class APP future

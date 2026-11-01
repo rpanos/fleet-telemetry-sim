@@ -1,0 +1,23 @@
+sequenceDiagram
+  actor U as Ops user
+  participant C as Command service
+  participant B as Broker
+  participant G as Gateway on trailer
+  participant S as Controller safety check
+  U->>C: set DESIRED mode = standby
+  C->>C: give it command_id + expires in 60 s
+  C->>B: publish fleet/TR-001/cmd, QoS 1, expiry 60 s
+  B->>G: deliver
+  G->>G: seen this command_id already? ignore it (idempotent)
+  G->>G: expired? reject it, never run late
+  G->>S: safe to stop now?
+  alt load is low
+    S-->>G: yes
+    G->>B: ack ACCEPTED, REPORTED mode = standby
+  else load 85%, a crane is running
+    S-->>G: NO
+    G->>B: ack REJECTED, reason load above 30%
+  end
+  B->>C: ack
+  C->>U: shows desired vs reported side by side
+  Note over C,S: The cloud only REQUESTS. The machine DECIDES.

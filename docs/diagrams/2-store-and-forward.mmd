@@ -1,0 +1,21 @@
+sequenceDiagram
+  participant M as Modules
+  participant G as Gateway
+  participant D as Disk queue
+  participant B as Broker
+  participant DB as Database
+  M->>G: reading, measured 14:00:01
+  G->>D: 1. write to disk first
+  G->>B: 2. publish, QoS 1
+  B-->>G: 3. PUBACK, got it
+  G->>D: 4. now safe to delete
+  Note over G,B: Cell signal lost 14:05 to 20:05
+  loop every second while offline
+    M->>G: reading
+    G->>D: write, queue keeps growing
+  end
+  Note over G,B: Signal back at 20:05
+  G->>B: live lane: current status FIRST
+  G->>B: backfill lane: buffered history, oldest first
+  B->>DB: stored at MEASURED time 14:05, not arrival time 20:05
+  Note over G,DB: PUBACK lost, so the gateway resends. The duplicate hits the same primary key and changes nothing (idempotent).

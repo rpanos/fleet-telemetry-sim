@@ -26,13 +26,14 @@ LOAD_PROFILES = {
 }
 
 # Dispatch rules: start another module above 85% per-module load, stop one if
-# the rest could carry the load below 70%, and wait 60 s between changes so
-# noise doesn't make modules flap on and off. Dispatch looks at the BASE load
+# the rest could carry the load below 70%. Starting is quick (10 s apart);
+# stopping is slow (120 s since the last change) so modules don't flap. Dispatch looks at the BASE load
 # only: short crane spikes are covered by surge boost, not by starting modules
 # ("no oversizing").
 START_ABOVE = 0.85
 STOP_BELOW = 0.70
-MIN_DISPATCH_GAP_S = 60
+MIN_START_GAP_S = 10
+MIN_STOP_GAP_S = 120
 
 EXHAUST_WARN_C = 520.0
 EXHAUST_CLEAR_C = 480.0
@@ -157,18 +158,33 @@ class Trailer:
     def _dispatch(self, demand_kw, events, ts_ms):
         active = [m for m in self.modules if m.running]
         idle = [m for m in self.modules if not m.running]
-        if self.clock_s - self.last_dispatch_s < MIN_DISPATCH_GAP_S:
-            return
-        if idle and demand_kw / len(active) > START_ABOVE * MODULE_RATED_KW:
+        since = self.clock_s - self.last_dispatch_s
+        if idle and since >= MIN_START_GAP_S and demand_kw / len(active) > START_ABOVE * MODULE_RATED_KW:
             m = idle[0]
             m.running, m.start_count = True, m.start_count + 1
             self.last_dispatch_s = self.clock_s
             events.append(_event(ts_ms, "info", "MODULE_STARTED", m.module_id, f"demand {demand_kw:.1f} kW"))
-        elif len(active) > 1 and demand_kw / (len(active) - 1) < STOP_BELOW * MODULE_RATED_KW:
+        elif len(active) > 1 and since >= MIN_STOP_GAP_S and demand_kw / (len(active) - 1) < STOP_BELOW * MODULE_RATED_KW:
             m = active[-1]
             m.running = False
             self.last_dispatch_s = self.clock_s
             events.append(_event(ts_ms, "info", "MODULE_STOPPED", m.module_id, f"demand {demand_kw:.1f} kW"))
+
+    def _warm_start(self, base_kw, ambient):
+        """Simulator boot: pretend the trailer was already running, so we don't
+        see a fake 'cold start' every time the container restarts."""
+        need = max(1, min(self.spec.n_modules, math.ceil(base_kw / (0.75 * MODULE_RATED_KW))))
+        frac = base_kw / need / MODULE_RATED_KW
+        for i, m in enumerate(self.modules):
+            m.running = i < need
+            if m.running:
+                m.rpm = 1500 + 2100 * min(frac, 1.0) ** 0.7
+                m.coolant_temp_c = ambient + 55 + 25 * frac
+                m.exhaust_temp_c = 120 + 380 * frac
+                m.inverter_temp_c = ambient + 10 + 35 * frac
+            else:
+                m.coolant_temp_c = m.exhaust_temp_c = m.inverter_temp_c = ambient
+        self.base_avg_kw = base_kw
 
     def step(self, ts_ms, dt=1.0):
         """Advance one tick. Returns (module_samples, trailer_sample, events)."""
@@ -180,6 +196,8 @@ class Trailer:
 
         base, spike = self._demand_kw(hour, dt)
         demand = base + spike
+        if self.clock_s == dt:
+            self._warm_start(base, ambient)
         # Dispatch on a 2-minute moving average so second-to-second noise
         # doesn't start and stop modules.
         self.base_avg_kw = base if self.base_avg_kw < 0 else _lag(self.base_avg_kw, base, dt, 120)

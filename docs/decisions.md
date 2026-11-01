@@ -29,3 +29,4 @@ Each entry: what we skipped, what could go wrong, and what ends the deferral.
 | D-110 | Battery modules not simulated; surge shown only as `boost_active` | Hybrid story is talk-only | If the demo needs the battery angle |
 | D-111 | Gateway buffers in memory while offline (paho's queue) | A gateway crash loses buffered data | M3 (store-and-forward to disk) |
 | D-112 | 23 signals per module, not ~50 | Smaller than a real controller | Never, for a demo; it's a knob |
+| D-113 | Cloud deployment (demo runs on a laptop) | No shareable live link | After the interview: one EC2 box running this same Compose file (~1 h). The serverless rewrite (IoT Core → Lambda) is D-105. |

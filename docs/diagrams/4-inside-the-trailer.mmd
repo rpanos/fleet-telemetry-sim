@@ -1,0 +1,39 @@
+%%{init: {"flowchart": {"curve": "basis"}, "themeVariables": {"clusterBkg": "#fafafa", "clusterBorder": "#bbb"}}}%%
+flowchart LR
+  subgraph TRAILER["Inside one Edge trailer - physical view"]
+    direction TB
+    subgraph BAY["Module bay - power side"]
+      direction LR
+      MA["Module 1<br/>engine + alternator + inverter<br/><b>controller</b> = small computer<br/>runs the safety logic"]
+      MB["Module 2<br/>own controller"]
+      MC["Module N<br/>own controller"]
+    end
+    BUS["CAN bus<br/>one shared 2-wire data cable<br/>like the network inside a car"]
+    subgraph CAB["Control cabinet - small box on the wall"]
+      direction TB
+      GW["<b>GATEWAY</b><br/>rugged Linux computer<br/>store-and-forward on its disk"]
+      MODEM["Cell modem + GPS"]
+      GW --- MODEM
+    end
+    HMI["Local touchscreen<br/>for the crew on site"]
+    ANT(("Antenna<br/>on the roof"))
+    MA --- BUS
+    MB --- BUS
+    MC --- BUS
+    BUS --- GW
+    BUS --- HMI
+    MODEM --- ANT
+  end
+  TOWER["Cell tower"]
+  CLOUD["Cloud<br/>MQTT broker"]
+  ANT -. "4G / LTE radio" .-> TOWER
+  TOWER -- "internet" --> CLOUD
+
+  classDef mod fill:#fff4e5,stroke:#d9822b,color:#222
+  classDef gw fill:#e6f4ea,stroke:#2f855a,color:#222,stroke-width:2px
+  classDef cloud fill:#e8f1fb,stroke:#2b6cb0,color:#222
+  classDef bus fill:#fff,stroke:#666,color:#222,stroke-dasharray: 5 3
+  class MA,MB,MC mod
+  class GW,MODEM gw
+  class TOWER,CLOUD cloud
+  class BUS,HMI,ANT bus
