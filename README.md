@@ -1,0 +1,40 @@
+# fleet-telemetry-sim
+
+A small, working model of how a fleet of modular generators could stream
+telemetry to the cloud and receive remote commands — built to learn
+device-to-cloud data engineering by doing.
+
+Simulated trailers each hold several 20 kW power modules. Each module reports
+~50 signals per second over **MQTT**; data lands in **TimescaleDB** and shows
+up in **Grafana**. The interesting parts are the failure modes: cell dropouts
+(store-and-forward), duplicate deliveries (idempotent writes), late data
+(event time vs. arrival time), and a remote-command path where **safety lives
+on the device**.
+
+All design choices are my own guesses about how such a system could work.
+
+## Quick start
+
+Requires Docker Desktop.
+
+```
+docker compose up -d
+```
+
+## Status
+
+| Milestone | What | Status |
+|---|---|---|
+| M0 | MQTT broker + by-hand exercises | in progress |
+| M1 | Simulator + gateway publishing | — |
+| M2 | Ingest → TimescaleDB → Grafana | — |
+| M3 | Store-and-forward + dropout / duplicate / late-data failures | — |
+| M4 | Command path: desired/reported, safety, idempotency, expiry | — |
+
+Deliberately deferred work is tracked, with triggers, in
+[docs/decisions.md](docs/decisions.md).
+
+## Docs
+
+- [docs/m0-mqtt-by-hand.md](docs/m0-mqtt-by-hand.md) — learn MQTT with nothing but the broker
+- [docs/decisions.md](docs/decisions.md) — decisions and deferred work

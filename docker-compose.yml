@@ -1,0 +1,15 @@
+# Fleet telemetry simulator — local stack.
+# M0: just the MQTT broker. Later milestones add TimescaleDB, Grafana,
+# the simulator, the ingest worker and the command service.
+services:
+  broker:
+    image: eclipse-mosquitto:2
+    container_name: fleet-broker
+    ports:
+      - "1883:1883"          # MQTT (plain, local only)
+    volumes:
+      - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - broker-data:/mosquitto/data
+
+volumes:
+  broker-data:
