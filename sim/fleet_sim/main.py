@@ -62,6 +62,8 @@ def main():
     pairs = [(Trailer(spec, random.Random(settings.seed * 1000 + i)), Gateway(spec, settings))
              for i, spec in enumerate(fleet)]
     gateways = {t.spec.trailer_id: gw for t, gw in pairs}
+    for trailer, gw in pairs:
+        gw.controller = trailer   # the gateway asks the controller; the controller decides
     commands = queue.Queue()
     control = start_control_listener(settings, commands)
 

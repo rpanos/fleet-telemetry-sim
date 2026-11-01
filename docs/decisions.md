@@ -23,7 +23,7 @@ Each entry: what we skipped, what could go wrong, and what ends the deferral.
 | D-104 | Grafana geomap + alerting rules | Dashboard is less impressive | After M2 if time allows |
 | D-105 | AWS IoT Core + Device Shadow version | Can't show the managed-service path | Learning goal for DVA-C02 / after the interview |
 | D-106 | React command UI (CLI only for now) | Less visual demo | After M4 if time allows |
-| D-107 | M4 command path (desired/reported, safety check, idempotency, expiry) | Talk-only; can't demo the safety story | M3 done with time left before the demo |
+| D-107 | ~~M4 command path deferred~~ **Done in M4** (CLI `./fleetctl`, no web UI yet) | — | — |
 | D-108 | Unit tests for the physics model (checked by hand with a 24 h dry run) | Tuning changes could silently break the data shape | Before any further physics changes |
 | D-109 | JSON payloads (verbose; ~10x bigger than needed) | Cellular data cost in the real world | Bandwidth matters → Protobuf or CBOR with the same schema version |
 | D-110 | Battery modules not simulated; surge shown only as `boost_active` | Hybrid story is talk-only | If the demo needs the battery angle |
@@ -34,3 +34,6 @@ Each entry: what we skipped, what could go wrong, and what ends the deferral.
 | D-115 | Bad messages are logged and dropped, not parked in a dead-letter table | A firmware bug could silently lose data | Real devices → dead-letter table + alert |
 | D-116 | Ingest writes one bundle per transaction (no cross-bundle batching) | Fine at 1.2 bundles/s; slow at fleet scale | >~100 bundles/s → batch or use COPY |
 | D-117 | Outbox drops the oldest raw data when full (50k messages); no summarize-then-drop yet | A multi-week outage loses the oldest detail | Real devices → keep summaries, drop raw first |
+| D-118 | No local-operator override for a rejected STOP | A real emergency stop must always work | Real hardware: physical/local E-stop path, never a cloud override |
+| D-119 | Commands have no auth or roles (anyone with broker access can send) | Unacceptable beyond a laptop | Before any deployment: per-user roles (view vs. operate), signed commands, per-device ACLs |
+| D-120 | Desired state is not cleared or retried after a rejection | UI shows "not converged" until someone acts | Product decision: auto-clear, retry policy, or human follow-up |

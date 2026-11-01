@@ -650,6 +650,93 @@
         "overrides": []
       },
       "options": {}
+    },
+    {
+      "id": 30,
+      "type": "table",
+      "title": "Remote commands: the cloud asks, the trailer decides",
+      "description": "Send with ./fleetctl. 'Answers' > 1 means the trailer answered a resend without acting twice. Desired != Reported means not converged.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "fleetdb"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 57,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "fleetdb"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT c.created_at AS \"Sent\", c.trailer_id AS \"Trailer\", c.action AS \"Action\",\n       CASE WHEN c.status = 'pending' AND now() > c.expires_at THEN 'expired' ELSE c.status END AS \"Result\",\n       c.reason AS \"Trailer's reason\", c.ack_count AS \"Answers\",\n       d.desired_mode AS \"Desired now\", d.reported_mode AS \"Reported now\"\nFROM commands c LEFT JOIN device_state d USING (trailer_id)\nORDER BY c.created_at DESC LIMIT 50"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Result"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "accepted": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "rejected": {
+                        "color": "orange",
+                        "index": 1
+                      },
+                      "expired": {
+                        "color": "red",
+                        "index": 2
+                      },
+                      "pending": {
+                        "color": "blue",
+                        "index": 3
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Trailer's reason"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 520
+              }
+            ]
+          }
+        ]
+      },
+      "options": {}
     }
   ]
 }

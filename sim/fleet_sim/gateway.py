@@ -15,6 +15,13 @@ After a reconnect there are two lanes:
 - BACKFILL lane: older history trickles out, oldest first, rate-limited the
   way a real cellular link would be.
 
+REMOTE COMMANDS (M4). The gateway subscribes to fleet/{id}/cmd. For each
+command it checks, in order:
+  1. Seen this command_id before?  -> re-send the SAME answer, don't act again (idempotent)
+  2. Already expired?              -> reject; never act on a stale command
+  3. Ask the controller            -> the controller's safety logic decides
+and replies on fleet/{id}/cmd/ack with accepted/rejected + reason + REPORTED mode.
+
 Threading note: paho runs its network loop in a background thread. All
 SQLite access stays on the main thread; the paho thread only drops acked
 message ids into a deque.
@@ -28,6 +35,8 @@ import time
 import uuid
 
 import paho.mqtt.client as mqtt
+from paho.mqtt.packettypes import PacketTypes
+from paho.mqtt.properties import Properties
 
 from .config import Settings, TrailerSpec
 
@@ -53,6 +62,9 @@ class Outbox:
         self.db.execute("CREATE TABLE IF NOT EXISTS outbox ("
                         "id INTEGER PRIMARY KEY AUTOINCREMENT, topic TEXT NOT NULL, "
                         "payload BLOB NOT NULL, created_ms INTEGER NOT NULL)")
+        # Commands we've already answered, kept on disk so a reboot can't make us act twice.
+        self.db.execute("CREATE TABLE IF NOT EXISTS seen_commands ("
+                        "command_id TEXT PRIMARY KEY, status TEXT NOT NULL, reason TEXT, ts_ms INTEGER NOT NULL)")
 
     def put(self, topic, payload, created_ms):
         self.db.execute("INSERT INTO outbox (topic, payload, created_ms) VALUES (?, ?, ?)",
@@ -77,6 +89,14 @@ class Outbox:
     def delete(self, row_id):
         self.db.execute("DELETE FROM outbox WHERE id = ?", (row_id,))
 
+    def seen(self, command_id):
+        return self.db.execute("SELECT status, reason FROM seen_commands WHERE command_id = ?",
+                               (command_id,)).fetchone()
+
+    def remember(self, command_id, status, reason, ts_ms):
+        self.db.execute("INSERT OR IGNORE INTO seen_commands VALUES (?, ?, ?, ?)",
+                        (command_id, status, reason, ts_ms))
+
     def close(self):
         self.db.close()
 
@@ -93,6 +113,10 @@ class Gateway:
         self.t_telemetry = f"fleet/{tid}/telemetry"
         self.t_status = f"fleet/{tid}/status"
         self.t_alarms = f"fleet/{tid}/alarms"
+        self.t_cmd = f"fleet/{tid}/cmd"
+        self.t_cmd_ack = f"fleet/{tid}/cmd/ack"
+        self.controller = None             # the trailer's controller (physics model); set by main
+        self.cmd_inbox = collections.deque()
 
         os.makedirs(settings.outbox_dir, exist_ok=True)
         self.outbox = Outbox(os.path.join(settings.outbox_dir, f"{tid}.sqlite"))
@@ -118,9 +142,14 @@ class Gateway:
         self.client.on_connect = self._on_connect
         self.client.on_disconnect = self._on_disconnect
         self.client.on_publish = self._on_publish
+        self.client.on_message = self._on_message
         self.client.reconnect_delay_set(min_delay=1, max_delay=30)
+        # Persistent session: while we're offline the broker holds commands for us
+        # (and drops them when their MQTT message expiry passes).
+        props = Properties(PacketTypes.CONNECT)
+        props.SessionExpiryInterval = 3600
         self.client.connect_async(settings.mqtt_host, settings.mqtt_port,
-                                  keepalive=settings.keepalive_s)
+                                  keepalive=settings.keepalive_s, properties=props)
         self.client.loop_start()   # background network thread; handles reconnects
 
     # ---- paho callbacks (run on paho's thread: keep them tiny) ----------------
@@ -130,6 +159,7 @@ class Gateway:
             return
         self.connected = True
         self.reconnected = True
+        client.subscribe(self.t_cmd, qos=1)
         # Status is the "live lane" in its purest form: sent directly, not queued.
         client.publish(self.t_status, json.dumps({
             "state": "online", "ts_ms": now_ms(),
@@ -142,6 +172,9 @@ class Gateway:
 
     def _on_publish(self, client, userdata, mid, reason_code, properties):
         self.acked.append(mid)
+
+    def _on_message(self, client, userdata, msg):
+        self.cmd_inbox.append(msg.payload)
 
     # ---- producing messages (all go to disk first) ----------------------------
     def add(self, module_samples, trailer_sample):
@@ -184,6 +217,7 @@ class Gateway:
     def pump(self):
         if self.outage_until and time.time() >= self.outage_until:
             self._end_outage()
+        self._process_commands()
 
         while self.acked:                       # broker confirmed these: safe to delete
             row_id = self.inflight.pop(self.acked.popleft(), None)
@@ -218,6 +252,34 @@ class Gateway:
                 break
             self.inflight[info.mid] = row_id
         self._log_backlog()
+
+    def _process_commands(self):
+        tid = self.spec.trailer_id
+        while self.cmd_inbox:
+            try:
+                cmd = json.loads(self.cmd_inbox.popleft())
+                cid, action, expires_at_ms = cmd["command_id"], cmd["action"], int(cmd["expires_at_ms"])
+            except (ValueError, KeyError, TypeError) as e:
+                log.warning("%s ignoring malformed command: %s", tid, e)
+                continue
+            previous = self.outbox.seen(cid)
+            duplicate = previous is not None
+            if duplicate:                                   # 1. idempotent
+                status, reason = previous
+            elif now_ms() > expires_at_ms:                  # 2. never act late
+                status, reason = "rejected", "expired before it reached the trailer"
+            elif self.controller is None:
+                status, reason = "rejected", "no controller attached"
+            else:                                           # 3. the controller decides
+                status, reason = self.controller.execute(action)
+            if not duplicate:
+                self.outbox.remember(cid, status, reason, now_ms())
+            mode = self.controller.mode if self.controller else "unknown"
+            self._queue(self.t_cmd_ack, json.dumps({
+                "command_id": cid, "action": action, "status": status, "reason": reason,
+                "duplicate": duplicate, "reported": {"mode": mode}, "ts_ms": now_ms()}))
+            log.info("%s command %s %s -> %s%s (%s)", tid, action, cid[:8], status.upper(),
+                     " [duplicate: answered again, NOT executed again]" if duplicate else "", reason)
 
     def _log_backlog(self):
         backlog = self.outbox.count()

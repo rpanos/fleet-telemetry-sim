@@ -75,9 +75,12 @@ class Ingest:
 
     def handle(self, topic, payload):
         parts = topic.split("/")
-        if len(parts) != 3 or parts[0] != "fleet":
+        if len(parts) == 4 and parts[0] == "fleet" and parts[2:] == ["cmd", "ack"]:
+            trailer_id, kind = parts[1], "cmd_ack"
+        elif len(parts) == 3 and parts[0] == "fleet":
+            trailer_id, kind = parts[1], parts[2]
+        else:
             raise BadMessage(f"unexpected topic {topic}")
-        trailer_id, kind = parts[1], parts[2]
         if not payload:            # a cleared retained message
             return
         try:
@@ -92,6 +95,8 @@ class Ingest:
                 self._event(cur, trailer_id, data)
             elif kind == "status":
                 self._status(cur, trailer_id, data)
+            elif kind == "cmd_ack":
+                self._cmd_ack(cur, trailer_id, data)
         self.db.commit()
         self._maybe_log()
 
@@ -148,6 +153,29 @@ class Ingest:
                                           "severity": severity, "code": code,
                                           "detail": d.get("reason") or ""})
 
+    def _cmd_ack(self, cur, trailer_id, a):
+        """The trailer answered a command: record the result and its REPORTED state."""
+        when = ts(a["ts_ms"])
+        cur.execute(
+            "UPDATE commands SET status = %s, reason = %s, acked_at = COALESCE(acked_at, %s), "
+            "ack_count = ack_count + 1 WHERE command_id = %s",
+            (a["status"], a.get("reason"), when, a["command_id"]))
+        mode = (a.get("reported") or {}).get("mode")
+        if mode:
+            cur.execute(
+                "INSERT INTO device_state (trailer_id, reported_mode, reported_at) VALUES (%s, %s, %s) "
+                "ON CONFLICT (trailer_id) DO UPDATE SET reported_mode = EXCLUDED.reported_mode, "
+                "reported_at = EXCLUDED.reported_at",
+                (trailer_id, mode, when))
+        if not a.get("duplicate"):
+            self._event(cur, trailer_id, {
+                "ts_ms": a["ts_ms"],
+                "severity": "info" if a["status"] == "accepted" else "warning",
+                "code": f"COMMAND_{a['status'].upper()}",
+                "detail": f"{a.get('action', '?')}: {a.get('reason', '')}"})
+        log.info("%s answered %s %s: %s%s", trailer_id, a.get("action"), a["command_id"][:8],
+                 a["status"].upper(), " (duplicate)" if a.get("duplicate") else "")
+
     def _maybe_log(self):
         if time.monotonic() - self.window_started < 10:
             return
@@ -161,6 +189,27 @@ class Ingest:
 MIGRATIONS = [
     # M3: databases created before store-and-forward lack this column.
     "ALTER TABLE trailer_readings ADD COLUMN IF NOT EXISTS outbox_backlog integer",
+    # M4: remote commands and desired-vs-reported state.
+    """CREATE TABLE IF NOT EXISTS commands (
+        command_id   uuid PRIMARY KEY,
+        trailer_id   text NOT NULL,
+        action       text NOT NULL,
+        requested_by text NOT NULL,
+        created_at   timestamptz NOT NULL DEFAULT now(),
+        expires_at   timestamptz NOT NULL,
+        status       text NOT NULL DEFAULT 'pending',   -- pending / accepted / rejected
+        reason       text,
+        acked_at     timestamptz,
+        ack_count    integer NOT NULL DEFAULT 0          -- >1 means the trailer answered a resend
+    )""",
+    """CREATE TABLE IF NOT EXISTS device_state (
+        trailer_id      text PRIMARY KEY,
+        desired_mode    text,          -- what we ASKED for
+        desired_at      timestamptz,
+        desired_command uuid,
+        reported_mode   text,          -- what the trailer SAYS is true
+        reported_at     timestamptz
+    )""",
 ]
 
 
@@ -190,7 +239,8 @@ def main():
             log.warning("broker refused connection: %s", reason_code)
             return
         log.info("connected to broker (session resumed: %s)", flags.session_present)
-        c.subscribe([("fleet/+/telemetry", 1), ("fleet/+/alarms", 1), ("fleet/+/status", 1)])
+        c.subscribe([("fleet/+/telemetry", 1), ("fleet/+/alarms", 1), ("fleet/+/status", 1),
+                     ("fleet/+/cmd/ack", 1)])
 
     def on_message(c, userdata, msg):
         try:

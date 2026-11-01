@@ -1,0 +1,4 @@
+#!/bin/sh
+# Run fleetctl inside the ingest container (it already has the MQTT + database libraries).
+# Usage: ./fleetctl send TR-002 stop | ./fleetctl status | ./fleetctl --help
+exec docker compose exec ingest python -m fleet_ingest.fleetctl "$@"

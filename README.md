@@ -30,8 +30,8 @@ Then open http://localhost:3300 for the Grafana dashboard.
 | M0 | MQTT broker + by-hand exercises | done |
 | M1 | Simulator + gateway publishing | done |
 | M2 | Ingest → TimescaleDB → Grafana | done |
-| M3 | Store-and-forward + dropout / duplicate / late-data failures | in review |
-| M4 | Command path: desired/reported, safety, idempotency, expiry | deferred (D-107) |
+| M3 | Store-and-forward + dropout / duplicate / late-data failures | done |
+| M4 | Command path: desired/reported, safety, idempotency, expiry | in review |
 
 Deliberately deferred work is tracked, with triggers, in
 [docs/decisions.md](docs/decisions.md).
@@ -43,4 +43,5 @@ Deliberately deferred work is tracked, with triggers, in
 - [docs/m1-simulator.md](docs/m1-simulator.md) — the simulated fleet and its message contract
 - [docs/m2-storage-and-dashboards.md](docs/m2-storage-and-dashboards.md) — ingest, TimescaleDB, Grafana
 - [docs/m3-store-and-forward.md](docs/m3-store-and-forward.md) — cut a trailer's cell signal and watch nothing get lost
+- [docs/m4-commands.md](docs/m4-commands.md) — remote commands: the cloud asks, the trailer decides
 - [docs/decisions.md](docs/decisions.md) — decisions and deferred work

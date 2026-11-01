@@ -40,6 +40,11 @@ EXHAUST_CLEAR_C = 480.0
 LOW_FUEL_PCT = 20.0
 REFUEL_AT_PCT = 12.0
 
+# SAFETY RULE, enforced on the trailer's controller, never in the cloud:
+# refuse a remote STOP if the site is drawing more than 40% of capacity,
+# because someone's equipment (a crane, a pump) is depending on that power.
+STOP_MAX_LOAD_FRAC = 0.40
+
 
 def _interp(points, x):
     for (x0, y0), (x1, y1) in zip(points, points[1:]):
@@ -127,6 +132,8 @@ class Trailer:
     clock_s: float = 0.0
     base_avg_kw: float = -1.0   # smoothed base load the dispatcher sees
     low_fuel_warned: bool = False
+    mode: str = "running"        # running | standby (set by remote commands)
+    last_base_kw: float = 0.0     # what the site is asking for right now
 
     def __post_init__(self):
         n = self.spec.n_modules
@@ -158,6 +165,8 @@ class Trailer:
     def _dispatch(self, demand_kw, events, ts_ms):
         active = [m for m in self.modules if m.running]
         idle = [m for m in self.modules if not m.running]
+        if not active:
+            return
         since = self.clock_s - self.last_dispatch_s
         if idle and since >= MIN_START_GAP_S and demand_kw / len(active) > START_ABOVE * MODULE_RATED_KW:
             m = idle[0]
@@ -186,6 +195,29 @@ class Trailer:
                 m.coolant_temp_c = m.exhaust_temp_c = m.inverter_temp_c = ambient
         self.base_avg_kw = base_kw
 
+    def execute(self, action):
+        """The CONTROLLER decides. Returns (status, reason). The cloud can only ask."""
+        load_frac = self.last_base_kw / self.capacity_kw
+        if action == "stop":
+            if self.mode == "standby":
+                return "accepted", "already in standby"
+            if load_frac > STOP_MAX_LOAD_FRAC:
+                return "rejected", (f"unsafe: site is drawing {load_frac:.0%} of capacity "
+                                    f"(limit {STOP_MAX_LOAD_FRAC:.0%}); equipment depends on this power")
+            self.mode = "standby"
+            for m in self.modules:
+                m.running = False
+            return "accepted", f"stopped at {load_frac:.0%} load"
+        if action == "start":
+            if self.mode == "running":
+                return "accepted", "already running"
+            self.mode = "running"
+            first = self.modules[0]
+            first.running, first.start_count = True, first.start_count + 1
+            self.last_dispatch_s = self.clock_s
+            return "accepted", "started; more modules will join as load requires"
+        return "rejected", f"unknown action {action!r}"
+
     def step(self, ts_ms, dt=1.0):
         """Advance one tick. Returns (module_samples, trailer_sample, events)."""
         self.clock_s += dt
@@ -201,9 +233,13 @@ class Trailer:
         # Dispatch on a 2-minute moving average so second-to-second noise
         # doesn't start and stop modules.
         self.base_avg_kw = base if self.base_avg_kw < 0 else _lag(self.base_avg_kw, base, dt, 120)
-        self._dispatch(self.base_avg_kw, events, ts_ms)
+        self.last_base_kw = base
+        if self.mode == "standby":       # stopped by a remote command: no power delivered
+            demand = 0.0
+        else:
+            self._dispatch(self.base_avg_kw, events, ts_ms)
         active = [m for m in self.modules if m.running]
-        share = demand / len(active)
+        share = demand / len(active) if active else 0.0
 
         module_samples = []
         total_fuel_gph = 0.0
