@@ -1,6 +1,6 @@
 # Fleet telemetry simulator — local stack.
-# M0: MQTT broker. M1: simulated fleet. Later: TimescaleDB, Grafana,
-# the ingest worker and the command service.
+# M0: MQTT broker. M1: simulated fleet. M2: TimescaleDB + ingest worker + Grafana.
+# LOCAL ONLY: the passwords below are throwaway demo values (see D-101).
 services:
   broker:
     image: eclipse-mosquitto:2
@@ -24,5 +24,53 @@ services:
       - broker
     stop_grace_period: 10s   # time to send a clean "offline" for every trailer
 
+  timescaledb:
+    image: timescale/timescaledb:2.17.2-pg16
+    container_name: fleet-db
+    environment:
+      POSTGRES_USER: fleet
+      POSTGRES_PASSWORD: fleet
+      POSTGRES_DB: fleet
+    ports:
+      - "127.0.0.1:5433:5432"   # Mac port 5433, avoids a local Postgres; this Mac only
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fleet -d fleet"]
+      interval: 5s
+      retries: 20
+
+  ingest:
+    build: ./ingest
+    container_name: fleet-ingest
+    environment:
+      MQTT_HOST: broker
+      DB_DSN: postgresql://fleet:fleet@timescaledb:5432/fleet
+    depends_on:
+      broker:
+        condition: service_started
+      timescaledb:
+        condition: service_healthy
+    restart: unless-stopped   # crash-only: on a DB error it exits, Docker restarts it
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: fleet-grafana
+    ports:
+      - "127.0.0.1:3300:3000"   # Mac port 3300, avoids dev servers on 3000
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/fleet-overview.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+
 volumes:
   broker-data:
+  db-data:

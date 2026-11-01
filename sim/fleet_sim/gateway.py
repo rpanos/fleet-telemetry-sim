@@ -11,6 +11,7 @@ M3 replaces this with an on-disk store-and-forward queue.
 import json
 import logging
 import time
+import uuid
 
 import paho.mqtt.client as mqtt
 
@@ -28,6 +29,7 @@ class Gateway:
     def __init__(self, spec: TrailerSpec, settings: Settings):
         self.spec = spec
         self.seq = 0
+        self.boot_id = uuid.uuid4().hex[:8]   # seq restarts at 1 on every reboot
         self.module_samples = []
         self.trailer_samples = []
         tid = spec.trailer_id
@@ -74,6 +76,7 @@ class Gateway:
             "schema": SCHEMA,
             "trailer_id": self.spec.trailer_id,
             "site_id": self.spec.site.site_id,
+            "boot_id": self.boot_id,
             "seq": self.seq,            # per-trailer counter: lets the cloud spot gaps/dupes
             "sent_at_ms": now_ms(),     # arrival-ish time; each sample keeps its own ts_ms
             "module_samples": self.module_samples,

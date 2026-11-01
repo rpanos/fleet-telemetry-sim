@@ -8,7 +8,7 @@
 | D-002 | Mosquitto as the broker | Standard MQTT, one container. Swapping to AWS IoT Core is config + certs | We want Device Shadow / Jobs for real |
 | D-003 | TimescaleDB | It's Postgres; hypertables automate time partitioning | Write volume outgrows one node |
 | D-004 | Grafana for dashboards | Fast, standard for engineering views | We need a customer-facing UI |
-| D-005 | Narrow telemetry table (one row per signal) | Flexible while signals are still changing | Storage/query cost matters → wide table |
+| D-005 | ~~Narrow table~~ → **wide tables** (one row per module per second) | Did the math in M2: narrow = ~1,500 rows/s, ~130M rows/day on a laptop; wide = ~66 rows/s | Signals change often → add columns, or a JSONB column for extras |
 | D-006 | Docker Compose for everything | One command to run; hands-on container practice | — |
 
 ## Deferred on purpose
@@ -30,3 +30,6 @@ Each entry: what we skipped, what could go wrong, and what ends the deferral.
 | D-111 | Gateway buffers in memory while offline (paho's queue) | A gateway crash loses buffered data | M3 (store-and-forward to disk) |
 | D-112 | 23 signals per module, not ~50 | Smaller than a real controller | Never, for a demo; it's a knob |
 | D-113 | Cloud deployment (demo runs on a laptop) | No shareable live link | After the interview: one EC2 box running this same Compose file (~1 h). The serverless rewrite (IoT Core → Lambda) is D-105. |
+| D-114 | Throwaway passwords in docker-compose.yml; Grafana anonymous viewer | Fine on localhost only | Any deployment (D-113) → secrets manager + real logins |
+| D-115 | Bad messages are logged and dropped, not parked in a dead-letter table | A firmware bug could silently lose data | Real devices → dead-letter table + alert |
+| D-116 | Ingest writes one bundle per transaction (no cross-bundle batching) | Fine at 1.2 bundles/s; slow at fleet scale | >~100 bundles/s → batch or use COPY |

@@ -18,16 +18,18 @@ All design choices are my own guesses about how such a system could work.
 Requires Docker Desktop.
 
 ```
-docker compose up -d
+docker compose up -d --build
 ```
+
+Then open http://localhost:3300 for the Grafana dashboard.
 
 ## Status
 
 | Milestone | What | Status |
 |---|---|---|
 | M0 | MQTT broker + by-hand exercises | done |
-| M1 | Simulator + gateway publishing | in review |
-| M2 | Ingest → TimescaleDB → Grafana | — |
+| M1 | Simulator + gateway publishing | done |
+| M2 | Ingest → TimescaleDB → Grafana | in review |
 | M3 | Store-and-forward + dropout / duplicate / late-data failures | — |
 | M4 | Command path: desired/reported, safety, idempotency, expiry | deferred (D-107) |
 
@@ -37,5 +39,7 @@ Deliberately deferred work is tracked, with triggers, in
 ## Docs
 
 - [docs/m0-mqtt-by-hand.md](docs/m0-mqtt-by-hand.md) — learn MQTT with nothing but the broker
+- [docs/architecture.md](docs/architecture.md) — diagrams: data flow, store-and-forward, commands, inside a trailer
 - [docs/m1-simulator.md](docs/m1-simulator.md) — the simulated fleet and its message contract
+- [docs/m2-storage-and-dashboards.md](docs/m2-storage-and-dashboards.md) — ingest, TimescaleDB, Grafana
 - [docs/decisions.md](docs/decisions.md) — decisions and deferred work
