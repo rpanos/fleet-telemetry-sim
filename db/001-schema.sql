@@ -29,6 +29,7 @@ CREATE TABLE trailer_readings (
     total_load_kw   real, active_modules smallint, fuel_tank_pct real, fuel_tank_gal real,
     ambient_temp_c  real, lat double precision, lon double precision,
     cell_signal_dbm real, door_open smallint,
+    outbox_backlog  integer,                 -- messages waiting on the gateway's disk
     received_at     timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (trailer_id, time)
 );

@@ -20,6 +20,10 @@ services:
       SEED: "42"
       PUBLISH_EVERY_S: "10"
       KEEPALIVE_S: "15"
+      OUTBOX_DIR: /data
+      BACKFILL_PER_TICK: "2"   # backlog messages per second after an outage (cellular bandwidth cap)
+    volumes:
+      - gateway-disk:/data     # each trailer's on-disk queue survives restarts
     depends_on:
       - broker
     stop_grace_period: 10s   # time to send a clean "offline" for every trailer
@@ -74,3 +78,4 @@ services:
 volumes:
   broker-data:
   db-data:
+  gateway-disk:

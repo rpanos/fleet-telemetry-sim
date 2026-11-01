@@ -46,8 +46,10 @@ class Settings:
     mqtt_port: int
     fleet_size: int
     seed: int
-    publish_every_s: int   # how many 1-second samples go into one bundle
-    keepalive_s: int       # MQTT keepalive; Last Will fires ~1.5x this after silence
+    publish_every_s: int    # how many 1-second samples go into one bundle
+    keepalive_s: int        # MQTT keepalive; Last Will fires ~1.5x this after silence
+    outbox_dir: str         # where each gateway keeps its on-disk queue
+    backfill_per_tick: int  # backlog messages sent per second after an outage (cellular bandwidth cap)
 
 
 def load_settings() -> Settings:
@@ -59,4 +61,6 @@ def load_settings() -> Settings:
         seed=int(env("SEED", "42")),
         publish_every_s=int(env("PUBLISH_EVERY_S", "10")),
         keepalive_s=int(env("KEEPALIVE_S", "15")),
+        outbox_dir=env("OUTBOX_DIR", "/data"),
+        backfill_per_tick=int(env("BACKFILL_PER_TICK", "2")),
     )

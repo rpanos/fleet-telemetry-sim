@@ -496,7 +496,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 39,
+        "y": 48,
         "w": 24,
         "h": 9
       },
@@ -553,6 +553,101 @@
             ]
           }
         ]
+      },
+      "options": {}
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Gateway backlog: messages waiting on each trailer's disk",
+      "description": "Store-and-forward made visible. Normally 0-1. During an outage it climbs (and we only learn that afterwards, when the buffered readings arrive). After reconnect it drains at the cellular bandwidth cap.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "fleetdb"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "fleetdb"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time_bucket('$__interval', time) AS time, trailer_id AS metric, max(outbox_backlog) AS value\nFROM trailer_readings WHERE $__timeFilter(time)\nGROUP BY 1, 2 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "custom": {
+            "lineInterpolation": "stepAfter"
+          }
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Cell signal: $trailer",
+      "description": "-125 dBm = no signal. Readings taken during the outage still arrive later, at the right time.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "fleetdb"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 39,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "fleetdb"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time_bucket('$__interval', time) AS time, avg(cell_signal_dbm) AS \"signal dBm\"\nFROM trailer_readings WHERE $__timeFilter(time) AND trailer_id = '$trailer'\nGROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dBm",
+          "min": -130,
+          "max": -60,
+          "custom": {
+            "thresholdsStyle": {
+              "mode": "area"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "transparent",
+                "value": -110
+              }
+            ]
+          }
+        },
+        "overrides": []
       },
       "options": {}
     }

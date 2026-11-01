@@ -42,7 +42,7 @@ MODULE_SIGNALS = [
 ]
 TRAILER_SIGNALS = [
     "total_load_kw", "active_modules", "fuel_tank_pct", "fuel_tank_gal",
-    "ambient_temp_c", "lat", "lon", "cell_signal_dbm", "door_open",
+    "ambient_temp_c", "lat", "lon", "cell_signal_dbm", "door_open", "outbox_backlog",
 ]
 
 
@@ -158,10 +158,20 @@ class Ingest:
         self.window_started = time.monotonic()
 
 
+MIGRATIONS = [
+    # M3: databases created before store-and-forward lack this column.
+    "ALTER TABLE trailer_readings ADD COLUMN IF NOT EXISTS outbox_backlog integer",
+]
+
+
 def connect_db():
     for attempt in range(60):
         try:
-            return psycopg.connect(DB_DSN)
+            db = psycopg.connect(DB_DSN)
+            for sql in MIGRATIONS:
+                db.execute(sql)
+            db.commit()
+            return db
         except psycopg.OperationalError as e:
             log.info("database not ready (%s), retrying...", str(e).strip().splitlines()[0])
             time.sleep(2)

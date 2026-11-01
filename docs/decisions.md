@@ -27,9 +27,10 @@ Each entry: what we skipped, what could go wrong, and what ends the deferral.
 | D-108 | Unit tests for the physics model (checked by hand with a 24 h dry run) | Tuning changes could silently break the data shape | Before any further physics changes |
 | D-109 | JSON payloads (verbose; ~10x bigger than needed) | Cellular data cost in the real world | Bandwidth matters → Protobuf or CBOR with the same schema version |
 | D-110 | Battery modules not simulated; surge shown only as `boost_active` | Hybrid story is talk-only | If the demo needs the battery angle |
-| D-111 | Gateway buffers in memory while offline (paho's queue) | A gateway crash loses buffered data | M3 (store-and-forward to disk) |
+| D-111 | ~~Gateway buffers in memory while offline~~ **Done in M3:** SQLite outbox on disk | — | — |
 | D-112 | 23 signals per module, not ~50 | Smaller than a real controller | Never, for a demo; it's a knob |
 | D-113 | Cloud deployment (demo runs on a laptop) | No shareable live link | After the interview: one EC2 box running this same Compose file (~1 h). The serverless rewrite (IoT Core → Lambda) is D-105. |
 | D-114 | Throwaway passwords in docker-compose.yml; Grafana anonymous viewer | Fine on localhost only | Any deployment (D-113) → secrets manager + real logins |
 | D-115 | Bad messages are logged and dropped, not parked in a dead-letter table | A firmware bug could silently lose data | Real devices → dead-letter table + alert |
 | D-116 | Ingest writes one bundle per transaction (no cross-bundle batching) | Fine at 1.2 bundles/s; slow at fleet scale | >~100 bundles/s → batch or use COPY |
+| D-117 | Outbox drops the oldest raw data when full (50k messages); no summarize-then-drop yet | A multi-week outage loses the oldest detail | Real devices → keep summaries, drop raw first |
