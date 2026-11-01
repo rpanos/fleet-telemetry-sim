@@ -1,6 +1,6 @@
 # Fleet telemetry simulator — local stack.
-# M0: just the MQTT broker. Later milestones add TimescaleDB, Grafana,
-# the simulator, the ingest worker and the command service.
+# M0: MQTT broker. M1: simulated fleet. Later: TimescaleDB, Grafana,
+# the ingest worker and the command service.
 services:
   broker:
     image: eclipse-mosquitto:2
@@ -10,6 +10,19 @@ services:
     volumes:
       - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - broker-data:/mosquitto/data
+
+  sim:
+    build: ./sim
+    container_name: fleet-sim
+    environment:
+      MQTT_HOST: broker
+      FLEET_SIZE: "12"
+      SEED: "42"
+      PUBLISH_EVERY_S: "10"
+      KEEPALIVE_S: "15"
+    depends_on:
+      - broker
+    stop_grace_period: 10s   # time to send a clean "offline" for every trailer
 
 volumes:
   broker-data:

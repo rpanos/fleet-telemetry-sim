@@ -23,3 +23,9 @@ Each entry: what we skipped, what could go wrong, and what ends the deferral.
 | D-104 | Grafana geomap + alerting rules | Dashboard is less impressive | After M2 if time allows |
 | D-105 | AWS IoT Core + Device Shadow version | Can't show the managed-service path | Learning goal for DVA-C02 / after the interview |
 | D-106 | React command UI (CLI only for now) | Less visual demo | After M4 if time allows |
+| D-107 | M4 command path (desired/reported, safety check, idempotency, expiry) | Talk-only; can't demo the safety story | M3 done with time left before the demo |
+| D-108 | Unit tests for the physics model (checked by hand with a 24 h dry run) | Tuning changes could silently break the data shape | Before any further physics changes |
+| D-109 | JSON payloads (verbose; ~10x bigger than needed) | Cellular data cost in the real world | Bandwidth matters → Protobuf or CBOR with the same schema version |
+| D-110 | Battery modules not simulated; surge shown only as `boost_active` | Hybrid story is talk-only | If the demo needs the battery angle |
+| D-111 | Gateway buffers in memory while offline (paho's queue) | A gateway crash loses buffered data | M3 (store-and-forward to disk) |
+| D-112 | 23 signals per module, not ~50 | Smaller than a real controller | Never, for a demo; it's a knob |

@@ -25,11 +25,11 @@ docker compose up -d
 
 | Milestone | What | Status |
 |---|---|---|
-| M0 | MQTT broker + by-hand exercises | in progress |
-| M1 | Simulator + gateway publishing | — |
+| M0 | MQTT broker + by-hand exercises | done |
+| M1 | Simulator + gateway publishing | in review |
 | M2 | Ingest → TimescaleDB → Grafana | — |
 | M3 | Store-and-forward + dropout / duplicate / late-data failures | — |
-| M4 | Command path: desired/reported, safety, idempotency, expiry | — |
+| M4 | Command path: desired/reported, safety, idempotency, expiry | deferred (D-107) |
 
 Deliberately deferred work is tracked, with triggers, in
 [docs/decisions.md](docs/decisions.md).
@@ -37,4 +37,5 @@ Deliberately deferred work is tracked, with triggers, in
 ## Docs
 
 - [docs/m0-mqtt-by-hand.md](docs/m0-mqtt-by-hand.md) — learn MQTT with nothing but the broker
+- [docs/m1-simulator.md](docs/m1-simulator.md) — the simulated fleet and its message contract
 - [docs/decisions.md](docs/decisions.md) — decisions and deferred work
