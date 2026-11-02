@@ -31,7 +31,7 @@ Then open http://localhost:3300 for the Grafana dashboard.
 | M1 | Simulator + gateway publishing | done |
 | M2 | Ingest → TimescaleDB → Grafana | done |
 | M3 | Store-and-forward + dropout / duplicate / late-data failures | done |
-| M4 | Command path: desired/reported, safety, idempotency, expiry | in review |
+| M4 | Command path: desired/reported, safety, idempotency, expiry | done |
 
 Deliberately deferred work is tracked, with triggers, in
 [docs/decisions.md](docs/decisions.md).
