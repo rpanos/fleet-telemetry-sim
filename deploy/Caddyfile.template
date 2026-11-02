@@ -1,0 +1,13 @@
+# Rendered by deploy/setup.sh into deploy/Caddyfile (gitignored).
+# Caddy gets a real HTTPS certificate automatically for the sslip.io hostname.
+__HOST__ {
+	basic_auth {
+		__USER__ __HASH__
+	}
+	handle /grafana* {
+		reverse_proxy grafana:3000
+	}
+	handle {
+		reverse_proxy api:8000
+	}
+}

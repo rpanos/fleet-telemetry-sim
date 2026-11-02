@@ -1,0 +1,32 @@
+# Cloud overlay, used on EC2 only:
+#   docker compose -f docker-compose.yml -f docker-compose.cloud.yml up -d --build
+# Adds Caddy (HTTPS + password) in front; everything else stays on Docker's private network.
+# SITE_HOST and GRAFANA_ADMIN_PASSWORD come from .env, written by deploy/setup.sh.
+services:
+  caddy:
+    image: caddy:2.8
+    container_name: fleet-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data          # keeps the HTTPS certificate across restarts
+    depends_on:
+      - api
+      - grafana
+    restart: unless-stopped
+
+  api:
+    environment:
+      GRAFANA_URL: https://${SITE_HOST}/grafana/
+
+  grafana:
+    environment:
+      GF_SERVER_ROOT_URL: https://${SITE_HOST}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    restart: unless-stopped
+
+volumes:
+  caddy-data:

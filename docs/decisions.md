@@ -29,7 +29,7 @@ Each entry: what we skipped, what could go wrong, and what ends the deferral.
 | D-110 | Battery modules not simulated; surge shown only as `boost_active` | Hybrid story is talk-only | If the demo needs the battery angle |
 | D-111 | ~~Gateway buffers in memory while offline~~ **Done in M3:** SQLite outbox on disk | — | — |
 | D-112 | 23 signals per module, not ~50 | Smaller than a real controller | Never, for a demo; it's a knob |
-| D-113 | Cloud deployment (demo runs on a laptop) | No shareable live link | After the interview: one EC2 box running this same Compose file (~1 h). The serverless rewrite (IoT Core → Lambda) is D-105. |
+| D-113 | ~~Cloud deployment~~ **Done:** one EC2 box (t4g.medium) running the same Compose file + Caddy (HTTPS, password) | — | Serverless rewrite (IoT Core → Lambda) is D-105 |
 | D-114 | Throwaway passwords in docker-compose.yml; Grafana anonymous viewer | Fine on localhost only | Any deployment (D-113) → secrets manager + real logins |
 | D-115 | Bad messages are logged and dropped, not parked in a dead-letter table | A firmware bug could silently lose data | Real devices → dead-letter table + alert |
 | D-116 | Ingest writes one bundle per transaction (no cross-bundle batching) | Fine at 1.2 bundles/s; slow at fleet scale | >~100 bundles/s → batch or use COPY |
@@ -39,3 +39,4 @@ Each entry: what we skipped, what could go wrong, and what ends the deferral.
 | D-120 | Desired state is not cleared or retried after a rejection | UI shows "not converged" until someone acts | Product decision: auto-clear, retry policy, or human follow-up |
 | D-121 | UI polls every 2 s instead of pushing updates (WebSocket/SSE) | Wasteful at scale; up to 2 s stale | Many users or a big fleet → server push |
 | D-122 | API opens a DB connection per request; publishes via a fresh MQTT connection per command | Fine for a demo; slow under load | Real traffic → connection pool + one long-lived MQTT client |
+| D-123 | EC2 demo: shared basic-auth password, SSH open to one IP, no backups, single box | Fine for a week-long demo | Anything longer → SSM Session Manager (no SSH port), real auth, backups, IaC (CDK/Terraform) |
