@@ -22,7 +22,7 @@ Each entry: what we skipped, what could go wrong, and what ends the deferral.
 | D-103 | Fuel-savings report + SPC drift alarm (old M5) | Analytics story is talk-only | After M4, or if the role goes forward |
 | D-104 | Grafana geomap + alerting rules | Dashboard is less impressive | After M2 if time allows |
 | D-105 | AWS IoT Core + Device Shadow version | Can't show the managed-service path | Learning goal for DVA-C02 / after the interview |
-| D-106 | React command UI (CLI only for now) | Less visual demo | After M4 if time allows |
+| D-106 | ~~React command UI~~ **Done in M5** (Fleet Ops, polling every 2 s) | — | — |
 | D-107 | ~~M4 command path deferred~~ **Done in M4** (CLI `./fleetctl`, no web UI yet) | — | — |
 | D-108 | Unit tests for the physics model (checked by hand with a 24 h dry run) | Tuning changes could silently break the data shape | Before any further physics changes |
 | D-109 | JSON payloads (verbose; ~10x bigger than needed) | Cellular data cost in the real world | Bandwidth matters → Protobuf or CBOR with the same schema version |
@@ -37,3 +37,5 @@ Each entry: what we skipped, what could go wrong, and what ends the deferral.
 | D-118 | No local-operator override for a rejected STOP | A real emergency stop must always work | Real hardware: physical/local E-stop path, never a cloud override |
 | D-119 | Commands have no auth or roles (anyone with broker access can send) | Unacceptable beyond a laptop | Before any deployment: per-user roles (view vs. operate), signed commands, per-device ACLs |
 | D-120 | Desired state is not cleared or retried after a rejection | UI shows "not converged" until someone acts | Product decision: auto-clear, retry policy, or human follow-up |
+| D-121 | UI polls every 2 s instead of pushing updates (WebSocket/SSE) | Wasteful at scale; up to 2 s stale | Many users or a big fleet → server push |
+| D-122 | API opens a DB connection per request; publishes via a fresh MQTT connection per command | Fine for a demo; slow under load | Real traffic → connection pool + one long-lived MQTT client |

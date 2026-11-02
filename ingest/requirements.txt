@@ -1,2 +1,4 @@
 paho-mqtt==2.1.0
 psycopg[binary]==3.2.3
+fastapi==0.115.5
+uvicorn[standard]==0.32.1

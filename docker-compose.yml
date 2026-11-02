@@ -1,5 +1,6 @@
 # Fleet telemetry simulator — local stack.
 # M0: MQTT broker. M1: simulated fleet. M2: TimescaleDB + ingest worker + Grafana.
+# M4: commands. M5: Fleet Ops web UI + API (http://localhost:8300).
 # LOCAL ONLY: the passwords below are throwaway demo values (see D-101).
 services:
   broker:
@@ -57,6 +58,24 @@ services:
       timescaledb:
         condition: service_healthy
     restart: unless-stopped   # crash-only: on a DB error it exits, Docker restarts it
+
+  api:
+    build:
+      context: .                # repo root: needs both ui/ and ingest/
+      dockerfile: api/Dockerfile
+    container_name: fleet-api
+    ports:
+      - "127.0.0.1:8300:8000"   # Fleet Ops UI + API: http://localhost:8300
+    environment:
+      MQTT_HOST: broker
+      DB_DSN: postgresql://fleet:fleet@timescaledb:5432/fleet
+      GRAFANA_URL: http://localhost:3300
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      ingest:
+        condition: service_started   # ingest creates the command tables
+    restart: unless-stopped
 
   grafana:
     image: grafana/grafana:11.3.0
